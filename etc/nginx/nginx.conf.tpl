@@ -11,7 +11,7 @@ events {
 }
 
 http {
-    include mime.types;
+    include mime.types.conf;
     default_type application/octet-stream;
 
     access_log /dev/stdout combined;
