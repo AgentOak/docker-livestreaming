@@ -6,6 +6,7 @@
 *.xz
 *.rar
 *.7z
+docker-compose.*.yml
 
 # Windows
 Thumbs.db

@@ -1,0 +1,25 @@
+version: '3'
+services:
+  nginx-rtmp:
+    build: .
+    restart: unless-stopped
+    # Host networking is necessary because RTMP can't see client IPs otherwise
+    network_mode: host
+    volumes:
+      - ./applications:/etc/nginx/applications:ro
+      - ./segments:/srv/segments
+      - ./recordings:/srv/recordings
+    environment:
+      # Set these to match a user on your host if you are using bind mounts
+      # Must use IDs >=102 to not conflict with alpine default users
+      APP_UID: 1000
+      APP_GID: 1000
+      # Parameters for listen statements in nginx, can be port or addr:port
+      HTTP_LISTEN: 8080
+      RTMP_LISTEN: 1935
+      # Number of workers to run, or "auto" to use cpu core count
+      # When not using the http server, only 1 process is utilized anyway
+      NGINX_WORKER_PROCESSES: auto
+      NGINX_WORKER_CONNECTIONS: 1024
+      # Also counting internal push/pull connections
+      RTMP_MAX_CONNECTIONS: 1024
