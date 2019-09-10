@@ -49,6 +49,7 @@ http {
         #    rtmp_control all;
         #}
 
+        # TODO: Implement ?xsdate, ?iso and ?ms by using lua or njs
         location /time {
             return 200 "$time_iso8601";
 
