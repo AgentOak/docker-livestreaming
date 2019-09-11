@@ -5,7 +5,7 @@
 .editorconfig  text
 
 *.yml  text
-*.conf text linguist-language=nginx
-*.tpl  text linguist-language=nginx
+*.conf text linguist-language=Nginx
+*.tpl  text linguist-language=Nginx
 
 *.sh   text eol=lf
