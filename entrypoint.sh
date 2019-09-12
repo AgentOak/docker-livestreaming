@@ -4,8 +4,8 @@ set -eu
 if ! getent passwd app >/dev/null 2>&1; then
     addgroup -S -g "$APP_GID" app
     adduser -S -u "$APP_UID" -G app -h /var/lib/nginx -g "" -s /usr/sbin/nologin -D -H app
-    mkdir -p /srv/segments/dash /srv/segments/hls /srv/recordings
-    chown app: /srv/segments /srv/segments/dash /srv/segments/hls /srv/recordings
+    mkdir -p /srv/segments/dash /srv/segments/hls /srv/segments/image /srv/recordings
+    chown app: /srv/segments /srv/segments/dash /srv/segments/hls /srv/segments/image /srv/recordings
 fi
 
 if [ ! -f "/etc/nginx/nginx.conf" ]; then

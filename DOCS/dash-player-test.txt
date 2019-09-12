@@ -1,0 +1,37 @@
+Depending on your player, different DASH writers (see applications/segmented.conf) work best
+
+Measured latency is from rtmp publisher's encoder, through transcode_generic24, to web player presentation.
+dashjs v2/v3 results also apply to videojs when using videojs-contrib-dash (instead of built-in http-streaming).
+
+dashjs v2 = 2.9.3, v3 = 3.0.0, shaka = 2.5.5, videojs = 7.6.0 (w/ bundled http-streaming 1.10.3), ffmpeg = 4.1.4
+
+nginx-rtmp dash on
+  nginx-rtmp's manifests are missing the UTCTiming tag and therefore fail DASH IF manifest validation!
+  Some players allow setting a UTCTimingSource manually.
+- dashjs v2: Sometimes breaks and only decodes keyframes anymore, ~10-14s
+- dashjs v3: Either buffers a lot or better than v2, ~14-20s
+- videojs-http-streaming: Stops downloading new segments and loops an older one
+- shaka: Won't start sometimes, repeated buffering after start, but afterwards no problems
+
+ffmpeg -use_template 1 -use_timeline 1:
+- dashjs v2: No problems, ~12-22s, typically 18s
+- dashjs v3: No problems, ~12-22s, typically 18s
+- videojs-http-streaming: Won't start sometimes. Breaks often and can't recover, ~18-24s
+- shaka: No problems, ~10-16s, typically 14s
+
+ffmpeg -use_template 1 -use_timeline 0:
+- dashjs v2: Runs into an endless loop and can't recover, ~16s
+- dashjs v3: Breaks after prolonged streaming, ~14-18s
+- videojs-http-streaming: Won't start sometimes, Asynchronous audio, breaks after prolonged streaming, ~12-14s
+- shaka: Won't start
+
+ffmpeg -use_template 0
+- dashjs v2: Won't start sometimes, or runs into an endless loop and can't recover
+- dashjs v3: Stops downloading new segments and can't recover
+- videojs-http-streaming: Stops downloading new segments and can't recover
+- shaka: Won't start
+
+To sum up, best combinations (in descending order) seem to be:
+- ffmpeg -use_template 1 -use_timeline 1 + shaka
+- ffmpeg -use_template 1 -use_timeline 1 + dashjs v2/v3
+- nginx-rtmp dash + dashjs v2
