@@ -1,12 +1,12 @@
 version: '3'
 services:
   nginx-rtmp:
-    build: .
+    build: nginx-rtmp
     restart: unless-stopped
     # Host networking is necessary because RTMP can't see client IPs otherwise
     network_mode: host
     volumes:
-      - ./applications:/etc/nginx/applications:ro
+      - ./config/nginx-rtmp:/etc/nginx/applications:ro
       - ./segments:/srv/segments
       - ./recordings:/srv/recordings
     environment:
