@@ -1,4 +1,4 @@
-FROM alpine:3.11
+FROM alpine:3
 
 RUN apk --no-cache add icecast \
  && rm -f /etc/icecast.xml

@@ -1,4 +1,4 @@
-FROM alpine:3.11
+FROM alpine:3
 
 # TODO: Use fork https://github.com/sergey-dryabzhinsky/nginx-rtmp-module
 RUN apk --no-cache add \
