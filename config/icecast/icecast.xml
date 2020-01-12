@@ -13,12 +13,13 @@
     -->
 
     <limits>
-        <clients>100</clients>
-        <sources>2</sources>
-        <queue-size>524288</queue-size>
+        <clients>200</clients>
+        <sources>16</sources>
+        <threadpool>4</threadpool>
+        <queue-size>10485760</queue-size>
         <client-timeout>30</client-timeout>
         <header-timeout>15</header-timeout>
-        <source-timeout>10</source-timeout>
+        <source-timeout>30</source-timeout>
         <!-- If enabled, this will provide a burst of data when a client
              first connects, thereby significantly reducing the startup
              time for listeners that do substantial buffering. However,
@@ -29,7 +30,7 @@
         <!-- same as burst-on-connect, but this allows for being more
              specific on how much to burst. Most people won't need to
              change from the default 64k. Applies to all mountpoints  -->
-        <burst-size>65535</burst-size>
+        <burst-size>524280</burst-size>
     </limits>
 
     <authentication>
