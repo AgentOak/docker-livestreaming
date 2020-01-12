@@ -23,3 +23,10 @@ services:
       NGINX_WORKER_CONNECTIONS: 1024
       # Also counting internal push/pull connections
       RTMP_MAX_CONNECTIONS: 1024
+  icecast:
+    build: icecast
+    restart: unless-stopped
+    ports:
+      - 8090:8000
+    volumes:
+      - ./config/icecast:/etc/icecast:ro
