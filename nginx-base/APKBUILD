@@ -1,0 +1,232 @@
+# Based on main/nginx APKBUILD from git.alpinelinux.org/aports
+#
+# Maintainer: Jakub Jirutka <jakub@jirutka.cz>
+# Contributor: Jeff Bilyk <jbilyk@gmail.com>
+# Contributor: Bartłomiej Piotrowski <nospam@bpiotrowski.pl>
+# Contributor: Jakub Jirutka <jakub@jirutka.cz>
+#
+# secfixes:
+#   1.16.1-r6:
+#     - CVE-2019-20372
+#   1.16.1-r0:
+#     - CVE-2019-9511
+#     - CVE-2019-9513
+#     - CVE-2019-9516
+#   1.14.1-r0:
+#     - CVE-2018-16843
+#     - CVE-2018-16844
+#     - CVE-2018-16845
+#   1.12.1-r0:
+#     - CVE-2017-7529
+#
+pkgname=nginx
+# NOTE: Upgrade only to even-numbered versions (e.g. 1.14.z, 1.16.z)!
+# Odd-numbered versions are mainline (development) versions.
+pkgver=1.18.0
+pkgrel=1
+pkgdesc="HTTP and reverse proxy server (stable version)"
+url="https://www.nginx.org/"
+arch="all"
+license="BSD-2-Clause"
+depends=""
+makedepends="
+	gd-dev
+	libxml2-dev
+	linux-headers
+	openssl-dev
+	paxmark
+	pcre-dev
+	perl-dev
+	pkgconf
+	zlib-dev
+	"
+pkgusers="nginx"
+_grp_ngx="nginx"
+_grp_www="www-data"
+pkggroups="$_grp_ngx $_grp_www"
+install="$pkgname.pre-install $pkgname.pre-upgrade $pkgname.post-upgrade"
+subpackages="$pkgname-doc"
+replaces="$pkgname-common $pkgname-initscripts $pkgname-rtmp"
+source="https://nginx.org/download/$pkgname-$pkgver.tar.gz
+	nginx.conf
+	default.conf
+	$pkgname.logrotate
+	$pkgname.initd
+	$pkgname.confd
+	"
+builddir="$srcdir/$pkgname-$pkgver"
+
+_modules_dir="usr/lib/$pkgname/modules"
+
+# Third-party dynamic modules
+
+# For simplicity we assume that module is hosted on GitHub.
+_add_module() {
+	local name="$1" ver="$2" url="$3"
+	local dirname="${url##*/}-${ver#v}"
+
+	# Don't add new flag and source if it's already there, i.e. two or more
+	# modules share the same source (e.g. geoip2 that provides http-geoip2
+	# and stream-geoip2).
+	if ! printf '%s\n' $_extra_flags | grep -qFw "$srcdir/$dirname"; then
+		_extra_flags="$_extra_flags --add-dynamic-module=$srcdir/$dirname"
+		source="$source $dirname.tar.gz::$url/archive/$ver.tar.gz"
+	fi
+	subpackages="$subpackages $pkgname-mod-$name:_module"
+}
+
+#_add_module "rtmp" "v1.2.1" "https://github.com/arut/nginx-rtmp-module"
+#_rtmp_provides="$pkgname-rtmp"  # for backward compatibility
+
+_add_module "http-flv-live" "v1.2.8" "https://github.com/winshining/nginx-http-flv-module"
+_http_flv_live_provides="$pkgname-rtmp"  # for backward compatibility
+
+_add_module "http-vod" "1.27" "https://github.com/kaltura/nginx-vod-module"
+
+prepare() {
+	local file; for file in $source; do
+		case $file in
+		*~*.patch)
+			msg $file
+			cd "$srcdir"/${file%%~*}-*
+			patch -p 1 -i "$srcdir/$file"
+			;;
+		*.patch)
+			msg $file
+			cd "$builddir"
+			patch -p 1 -i "$srcdir/$file"
+			;;
+		esac
+	done
+}
+
+_build() {
+	./configure \
+		--prefix=/var/lib/$pkgname \
+		--sbin-path=/usr/sbin/$pkgname \
+		--modules-path=/$_modules_dir \
+		--conf-path=/etc/$pkgname/$pkgname.conf \
+		--pid-path=/run/$pkgname/$pkgname.pid \
+		--lock-path=/run/$pkgname/$pkgname.lock \
+		--http-client-body-temp-path=/var/lib/$pkgname/tmp/client_body \
+		--http-proxy-temp-path=/var/lib/$pkgname/tmp/proxy \
+		--http-fastcgi-temp-path=/var/lib/$pkgname/tmp/fastcgi \
+		--http-uwsgi-temp-path=/var/lib/$pkgname/tmp/uwsgi \
+		--http-scgi-temp-path=/var/lib/$pkgname/tmp/scgi \
+		--with-perl_modules_path=/usr/lib/perl5/vendor_perl \
+		\
+		--user=$pkgusers \
+		--group=$_grp_ngx \
+		--with-threads \
+		--with-file-aio \
+		\
+		--with-http_ssl_module \
+		--with-http_v2_module \
+		--with-http_realip_module \
+		--with-http_addition_module \
+		--with-http_sub_module \
+		--with-http_dav_module \
+		--with-http_flv_module \
+		--with-http_mp4_module \
+		--with-http_gunzip_module \
+		--with-http_gzip_static_module \
+		--with-http_auth_request_module \
+		--with-http_random_index_module \
+		--with-http_secure_link_module \
+		--with-http_degradation_module \
+		--with-http_slice_module \
+		--with-http_stub_status_module \
+		\
+		$_extra_flags \
+		"$@"
+
+	make
+}
+
+build() {
+	cd "$builddir"
+
+	make clean
+	_build
+}
+
+package() {
+	cd "$builddir"
+
+	make DESTDIR="$pkgdir" install
+	chown root:root "$pkgdir"/usr/sbin/nginx
+
+	# Disable some PaX protections; this is needed for Lua module.
+	local paxflags="-m"
+	[ "$CARCH" = "x86" ] && paxflags="-msp"
+	paxmark $paxflags "$pkgdir"/usr/sbin/nginx
+
+	install -Dm644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
+	install -Dm644 README "$pkgdir"/usr/share/doc/$pkgname/README
+
+	install -Dm644 objs/$pkgname.8 "$pkgdir"/usr/share/man/man8/$pkgname.8
+
+	local name; for name in nginx-http-flv-live-module; do
+		cp -r "$srcdir"/$name-*/doc* "$pkgdir"/usr/share/doc/$pkgname/$name
+	done
+
+	cd "$pkgdir"
+
+	install -Dm644 "$srcdir"/nginx.conf ./etc/$pkgname/nginx.conf
+	install -Dm644 "$srcdir"/default.conf ./etc/$pkgname/conf.d/default.conf
+	install -Dm755 "$srcdir"/$pkgname.initd ./etc/init.d/$pkgname
+	install -Dm644 "$srcdir"/$pkgname.confd ./etc/conf.d/$pkgname
+	install -Dm644 "$srcdir"/$pkgname.logrotate ./etc/logrotate.d/$pkgname
+
+	install -dm755 ./etc/$pkgname/modules
+	install -dm750 -o $pkgusers -g $_grp_ngx ./var/lib/$pkgname
+	install -dm700 -o $pkgusers -g $_grp_ngx ./var/lib/$pkgname/tmp
+	install -dm755 -g $_grp_www ./var/www/localhost/htdocs
+
+	install -dm755 ./var/log
+	mv ./var/lib/$pkgname/logs ./var/log/$pkgname
+	chown $pkgusers:$_grp_ngx var/log/$pkgname
+
+	ln -sf /$_modules_dir ./var/lib/$pkgname/modules
+	ln -sf /var/log/$pkgname ./var/lib/$pkgname/logs
+	ln -sf /run/$pkgname ./var/lib/$pkgname/run
+
+	# Remove archaic charset maps.
+	rm ./etc/$pkgname/koi-* ./etc/$pkgname/win-utf
+
+	rm -rf ./run ./etc/$pkgname/*.default
+}
+
+_module() {
+	local name="${subpkgname#$pkgname-mod-}"
+	name="${name//-/_}"
+	local sonames="$(eval "echo \$_${name}_so")";
+	sonames="${sonames:-"ngx_${name}_module.so"}"
+
+	pkgdesc="$pkgdesc (module $name)"
+	depends="$pkgname $(eval "echo \$_${name}_depends")"
+	provides="$(eval "echo \$_${name}_provides")"
+
+	mkdir -p "$subpkgdir"/$_modules_dir
+	mkdir -p "$subpkgdir"/etc/nginx/modules
+
+	cd "$subpkgdir"
+
+	local soname; for soname in $sonames; do
+		mv "$pkgdir"/$_modules_dir/$soname ./$_modules_dir/$soname
+		echo "load_module \"modules/$soname\";" >> ./etc/nginx/modules/$name.conf
+	done
+
+	case "$name" in
+		http_perl) mv "$pkgdir"/usr/lib/perl5 "$subpkgdir"/usr/lib/;;
+	esac
+}
+
+sha512sums="8c21eeb62ab6e32e436932500f700bd2fb99fd2d29e43c08a5bfed4714c189c29c7141db551fcd5d2437303b7439f71758f7407dfd3e801e704e45e7daa78ddb  nginx-1.18.0.tar.gz
+ac7e3153ab698b4cde077f0d5d7ac0a58897927eb36cf3b58cb01268ca0296f1d589c0a5b4f889b96b5b4a57bef05b17c59be59a9d7c4d7a3d3be58f101f7f41  nginx.conf
+0907f69dc2d3dc1bad3a04fb6673f741f1a8be964e22b306ef9ae2f8e736e1f5733a8884bfe54f3553fff5132a0e5336716250f54272c3fec2177d6ba16986f3  default.conf
+09b110693e3f4377349ccea3c43cb8199c8579ee351eae34283299be99fdf764b0c1bddd552e13e4d671b194501618b29c822e1ad53b34101a73a63954363dbb  nginx.logrotate
+ee10a5687740dde0c3d18d8b3555f49fcdc6abfc0a3bc2de1de3be0e99951a346fe8027d916aab73071ecd4e2c50871e7c867aca3a7a0fd16e3374c5caed1c57  nginx.initd
+0b9b9ed01ac077e334c034faa2679f6e26740fb3362eebf8cef82d22b2af2a3faaa53bae3c9e14af51cbf64720a7c66431905ca5cc43f978366456cc4e3b7f4a  nginx.confd
+6ba6d78da62aac2fe71367935daec9e263980c9e00db952ccfbfaa47854fe30f15090be017f1b1b6bffb36b76a232d1eea521fd20c69742deddbfb8fdfb1cf09  nginx-http-flv-module-1.2.8.tar.gz
+705851f259cca704148e3ecab38df4b9b881217023ec0027af64588b307c9c4d274b1872a6a130c5621234d484f9dcecba731f1c03f52d3bf58f7de7bb3aa9fc  nginx-vod-module-1.27.tar.gz"
